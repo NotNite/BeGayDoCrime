@@ -17,13 +17,28 @@ public class Plugin : BaseUnityPlugin {
     public static ManualLogSource Log = null!;
     public static Harmony Harmony = null!;
 
+    // Account for custom graffiti names being written to the save file
+    public static Dictionary<string, string> CustomToVanillaGraffiti = new();
+
     private void Awake() {
+        Log = this.Logger;
+
         CustomGraffitiFolder = Path.Combine(Paths.ConfigPath, "BeGayDoCrime");
         if (!Directory.Exists(CustomGraffitiFolder)) {
             Directory.CreateDirectory(CustomGraffitiFolder);
         }
 
-        Log = this.Logger;
+        var textFiles = Directory.GetFiles(CustomGraffitiFolder, "*.txt");
+        foreach (var textFile in textFiles) {
+            var origName = Path.GetFileNameWithoutExtension(textFile);
+            var metadata = GetMetadataFromArt(origName);
+            if (metadata is not null) {
+                var newName = metadata[0];
+                Log.LogInfo($"Found custom graffiti: {origName} -> {newName}");
+                CustomToVanillaGraffiti[newName] = origName;
+            }
+        }
+
         this.SetupHarmony();
     }
 
@@ -69,13 +84,15 @@ public class Plugin : BaseUnityPlugin {
     public static void ApplyCustomGraffiti(GraffitiArt? art) {
         if (art is null) return;
 
+        var title = CustomToVanillaGraffiti.TryGetValue(art.title, out var vanillaTitle) ? vanillaTitle : art.title;
+
         var oldTexture = art.graffitiMaterial.mainTexture;
-        var newTexture = GetTextureFromArt(art.title, oldTexture.width, oldTexture.height);
+        var newTexture = GetTextureFromArt(title, oldTexture.width, oldTexture.height);
         if (newTexture is not null) {
             art.graffitiMaterial.mainTexture = newTexture;
         }
 
-        var metadata = GetMetadataFromArt(art.title);
+        var metadata = GetMetadataFromArt(title);
         if (metadata is not null) {
             art.title = metadata[0];
             art.artistName = metadata[1];
@@ -85,16 +102,24 @@ public class Plugin : BaseUnityPlugin {
     public static void ApplyCustomGraffiti(GraffitiAppEntry? entry) {
         if (entry is null) return;
 
+        var title = CustomToVanillaGraffiti.TryGetValue(entry.Title, out var vanillaTitle) ? vanillaTitle : entry.Title;
+
         var oldTexture = entry.GraffitiTexture;
-        var newTexture = GetTextureFromArt(entry.Title, oldTexture.width, oldTexture.height);
+        var newTexture = GetTextureFromArt(title, oldTexture.width, oldTexture.height);
         if (newTexture is not null) {
             entry.GraffitiTexture = newTexture;
         }
 
-        var metadata = GetMetadataFromArt(entry.Title);
+        var metadata = GetMetadataFromArt(title);
         if (metadata is not null) {
             entry.Title = metadata[0];
             entry.Artist = metadata[1];
         }
+    }
+
+    // Have to do this because it wrote to the save file
+    // ...and I only noticed after I published it
+    public static string? RepairName(string name) {
+        return CustomToVanillaGraffiti.TryGetValue(name, out var vanillaName) ? vanillaName : null;
     }
 }

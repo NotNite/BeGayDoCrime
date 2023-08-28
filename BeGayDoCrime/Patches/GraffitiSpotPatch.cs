@@ -1,7 +1,7 @@
 ﻿using HarmonyLib;
 using Reptile;
 
-namespace BeGayDoCrime.Patches; 
+namespace BeGayDoCrime.Patches;
 
 [HarmonyPatch(typeof(GraffitiSpot))]
 public class GraffitiSpotPatch {
@@ -16,5 +16,17 @@ public class GraffitiSpotPatch {
     [HarmonyPatch("Paint")]
     internal static void Paint(Crew newCrew, GraffitiArt graffitiArt, Player byPlayer = null) {
         Plugin.ApplyCustomGraffiti(graffitiArt);
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch("ReadFromData")]
+    public static void ReadFromData(GraffitiSpot __instance) {
+        var progressableData = Traverse.Create(__instance).Field<GraffitiSpotProgress>("progressableData").Value;
+
+        var newTop = Plugin.RepairName(progressableData.topGraffitiArt);
+        if (newTop != null) progressableData.topGraffitiArt = newTop;
+
+        var newBottom = Plugin.RepairName(progressableData.bottomGraffitiArt);
+        if (newBottom != null) progressableData.bottomGraffitiArt = newBottom;
     }
 }
